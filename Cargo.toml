@@ -1,0 +1,11 @@
+[package]
+name = "meteoblue_api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { version = "0.12.15", features = ["blocking", "cookies"] }
+scraper = "0.23.1"
+serde = "1.0.219"
+serde_derive = "1.0.219"
+serde_json = "1.0.140"
