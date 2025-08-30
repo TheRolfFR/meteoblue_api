@@ -16,7 +16,7 @@ meteoblue_api_linux_musl <METEOBLUE_CITY_URL>
 
 ## Requirements
 
--Rust 1.83+
+- Rust 1.83+
 
 ## How to run in dev
 
@@ -38,11 +38,8 @@ First, clone this repo (duh).
 Build steps:
 1. Build the container
 1. Create the container (but don't run it)
-1. Copy the binary out
+1. Copy the binaries out
 
-```
-podman build -t meteoblue_api:dev .
-podman rm extract_meteoblue
-podman create --name extract_meteoblue meteoblue_api:dev
-podman cp extract_meteoblue:/root/meteoblue_api ./meteoblue_api_linux_musl
+```sh
+sh build_and_extract_binaries.sh
 ```

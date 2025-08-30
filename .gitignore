@@ -33,3 +33,6 @@ Cargo.lock
 .history
 .ionide
 
+vendor/
+meteoblue_*_linux_musl
+screenshot.png

@@ -2,6 +2,7 @@
 name = "meteoblue_api"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.83"
 
 [dependencies]
 reqwest = { version = "0.12.15", features = ["blocking", "cookies"] }
@@ -9,3 +10,24 @@ scraper = "0.23.1"
 serde = "1.0.219"
 serde_derive = "1.0.219"
 serde_json = "1.0.140"
+clap = { version = "4.5.46", features = ["derive"] }
+# graph dependencies
+playwright = { version = "0.0.20", optional = true }
+tokio = { version = "1.47.1", features = ["full"], optional = true }
+
+[build-dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
+[features]
+default = ["graph"]
+graph = ["dep:playwright", "dep:tokio"]
+
+[[bin]]
+name = "meteoblue_api"
+path = "src/main.rs"
+
+# Define the second binary with a feature
+[[bin]]
+name = "meteoblue_graph"
+path = "src/graph.rs"
+required-features = ["graph"]
