@@ -14,20 +14,30 @@ clap = { version = "4.5.46", features = ["derive"] }
 # graph dependencies
 playwright = { version = "0.0.20", optional = true }
 tokio = { version = "1.47.1", features = ["full"], optional = true }
+# api dependencies
+rouille = { version = "3.6.2", optional = true }
+tempfile = { version = "3", optional = true }
 
 [build-dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
 
 [features]
-default = ["graph"]
+default = ["graph", "api"]
 graph = ["dep:playwright", "dep:tokio"]
+api = ["dep:rouille", "dep:tempfile", "graph"]
 
 [[bin]]
-name = "meteoblue_api"
-path = "src/main.rs"
+name = "meteoblue_bin"
+path = "src/bin/main.rs"
 
 # Define the second binary with a feature
 [[bin]]
 name = "meteoblue_graph"
-path = "src/graph.rs"
+path = "src/bin/graph.rs"
 required-features = ["graph"]
+
+# Define the third binary with another feature
+[[bin]]
+name = "meteoblue_api"
+path = "src/bin/api.rs"
+required-features = ["api"]

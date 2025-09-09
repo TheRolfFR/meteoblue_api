@@ -3,40 +3,32 @@ use std::io::prelude::*;
 
 use clap::{Parser};
 use playwright::{Playwright, api::{Cookie, ScreenshotType, Viewport}};
-use tokio::runtime::Runtime;
 
 /// CLI tool to take screenshots of current day forecast with headless browser
 #[derive(Parser, Debug)]
-struct Opts {
+pub struct ScreenshotParams {
     /// URL of the page to capture screenshot from.
     #[clap()]
-    url: String,
+    pub url: String,
 
     /// Run browser in headless mode (default: true).
     #[clap(long, action = clap::ArgAction::Set, default_value_t = true)]
-    headless: bool,
+    pub headless: bool,
 
     /// Get in darkmode (default: false).
     #[clap(long, action = clap::ArgAction::Set, default_value_t = false)]
-    darkmode: bool,
+    pub darkmode: bool,
 
     /// Get screenshot transparent (default: false).
     #[clap(long, action = clap::ArgAction::Set, default_value_t = false)]
-    transparent: bool,
+    pub transparent: bool,
 
     /// Output path for the screenshot (optional).
     #[clap(short, long, default_value = "screenshot.png")]
-    output: String,
+    pub output: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opts: Opts = Opts::parse();
-
-    let rt = Runtime::new().unwrap();
-    rt.block_on(async_main(opts))
-}
-
-async fn async_main(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn capture_screenshot(opts: ScreenshotParams) -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", opts);
     let playwright = Playwright::initialize().await?;
     playwright.prepare()?;
@@ -86,6 +78,7 @@ async fn async_main(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     // remove cookie popup
     println!("Looking for cookie consent popup...");
     if let Ok(Some(_)) = page.wait_for_selector_builder(".fc-consent-root")
+        .timeout(2.0)
         .wait_for_selector().await {
             page.evaluate::<_, ()>("
                 Element.prototype.remove = function() {
@@ -140,6 +133,7 @@ async fn async_main(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     println!("Exiting...");
     Ok(())
 }
+
 
 fn pause() {
     // If not running in headless mode, pause execution until browser is closed manually
