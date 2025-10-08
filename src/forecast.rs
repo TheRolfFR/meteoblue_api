@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::Path};
 
 use reqwest::{cookie::Jar, Url};
-use scraper::{ElementRef, Html};
+use scraper::{ElementRef, Html, Selector};
 use serde_derive::Serialize;
 
 #[derive(Debug, Default, Serialize)]
@@ -32,8 +32,34 @@ pub struct CurrentWeather {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DayForecast {
+    day_short: String,
+    day_long: String,
+    icon: (String, String),
+    temperature: (i8, i8),
+    wind: (u8, String),
+    precip: Option<(u8, u8)>,
+    sun: u8,
+    precision: String
+}
+
+struct DaySelectors {
+    day_short: Selector,
+    day_long: Selector,
+    icon: Selector,
+    temperature_min: Selector,
+    temperature_max: Selector,
+    wind_dir: Selector,
+    wind_speed: Selector,
+    precip: Selector,
+    sun: Selector,
+    precision: Selector
+}
+
+#[derive(Debug, Serialize)]
 pub struct ForecastPage {
     current_weather: CurrentWeather,
+    day_forecast: Vec<DayForecast>,
     hourly_forecast: [HourlyForecast; 24]
 }
 
@@ -65,7 +91,13 @@ fn first_child<'a>(html: &'a Html, selector: &str) -> Option<ElementRef<'a>> {
 
 fn extract_text(html: &Html, selector: &str) -> Option<String> {
     let first_child = first_child(html, selector)?;
-    Some(first_child.text().collect())
+    Some(first_child.text().collect::<String>().trim().to_owned())
+}
+
+fn extract_text_el<'a>(el: ElementRef<'a>, selector: &Selector) -> Option<String> {
+    let mut select = el.select(selector);
+    let first_child = select.next()?;
+    Some(first_child.text().collect::<String>().trim().to_owned())
 }
 
 fn get_current_weather_from_doc(html: &Html) -> CurrentWeather {
@@ -95,6 +127,80 @@ fn get_current_weather_from_doc(html: &Html) -> CurrentWeather {
         temperature: opt_temperature.unwrap_or_default(),
         description: opt_description.unwrap_or_default(),
     }
+}
+
+fn get_day_forecast_from_el<'a>(el: ElementRef<'a>, selectors: &DaySelectors) -> DayForecast {
+    let day_short = extract_text_el(el, &selectors.day_short).unwrap_or_default();
+    let day_long = extract_text_el(el, &selectors.day_long).unwrap_or_default();
+
+    let icon =  el.select(&selectors.icon).next()
+        .map(|img| (
+            img.attr("src").map(str::to_owned).unwrap_or_default(),
+            img.attr("title").map(str::to_owned).unwrap_or_default(),
+        )).unwrap_or_default();
+
+    let temp_max = extract_text_el(el, &selectors.temperature_max)
+        .map(|header_text| header_text.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>())
+        .and_then(|txt_str| txt_str.parse().ok()).unwrap_or_default();
+    let temp_min = extract_text_el(el, &selectors.temperature_min)
+        .map(|header_text| header_text.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>())
+        .and_then(|txt_str| txt_str.parse().ok()).unwrap_or_default();
+
+    let wind_dir = el.select(&selectors.wind_dir).next()
+        .and_then(|found| found.attr("class")).map(|class| class.split_whitespace())
+        .and_then(|words| words.last())
+        .map(|res| res.to_owned()).unwrap_or_default();
+    let wind_speed = extract_text_el(el, &selectors.wind_speed)
+        .map(|header_text| header_text.chars().filter(|c| c.is_digit(10)).collect::<String>())
+        .and_then(|txt_str| txt_str.parse().ok()).unwrap_or_default();
+
+    let precip = extract_text_el(el, &selectors.precip)
+        .and_then(|text| if "-" == &text { None } else { Some(text)})
+        .map(|text| text.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>())
+        .and_then(|range| range.split_once('-').map(|(a, b)| (a.parse().unwrap_or_default(), b.parse().unwrap_or_default()))
+    );
+
+    let sun = extract_text_el(el, &selectors.sun)
+        .map(|header_text| header_text.chars().filter(|c| c.is_digit(10)).collect::<String>())
+        .and_then(|txt_str| txt_str.parse().ok()).unwrap_or_default();
+
+    let precision = el.select(&selectors.precision).next()
+        .and_then(|found| found.attr("title"))
+        .and_then(|title| title.split_once(':'))
+        .map(|(_,b)| b.trim().to_owned()).unwrap_or_default();
+
+    DayForecast { day_short,
+        day_long,
+        icon,
+        temperature: (temp_min, temp_max),
+        wind: (wind_speed, wind_dir),
+        precip,
+        sun,
+        precision,
+    }
+
+}
+
+fn get_day_forecast_from_doc(html: &Html) -> Vec<DayForecast> {
+    let list_selector = scraper::Selector::parse("#tabs > .tab").unwrap();
+    let tabs_tab_list = html.select(&list_selector);
+
+    let day_selectors = DaySelectors {
+        day_short: scraper::Selector::parse(".tab-day-short").unwrap(),
+        day_long: scraper::Selector::parse(".tab-day-long").unwrap(),
+        icon: scraper::Selector::parse(".weather-pictogram").unwrap(),
+        temperature_min: scraper::Selector::parse(".temps > .tab-temp-min").unwrap(),
+        temperature_max: scraper::Selector::parse(".temps > .tab-temp-max").unwrap(),
+        wind_dir: scraper::Selector::parse(".wind .winddir").unwrap(),
+        wind_speed: scraper::Selector::parse(".wind").unwrap(),
+        precip: scraper::Selector::parse(".tab-precip").unwrap(),
+        sun: scraper::Selector::parse(".tab-sun").unwrap(),
+        precision: scraper::Selector::parse(".tab-predictability").unwrap(),
+    };
+
+    tabs_tab_list.map(|tab| {
+        get_day_forecast_from_el(tab, &day_selectors)
+    }).collect()
 }
 
 
@@ -215,8 +321,11 @@ pub fn get_forecast_from_html(html_content: &str) -> ForecastPage {
 
     let current_weather = get_current_weather_from_doc(&document);
 
+    let day_forecast = get_day_forecast_from_doc(&document);
+
     ForecastPage {
         current_weather,
+        day_forecast,
         hourly_forecast,
     }
 }
