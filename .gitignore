@@ -36,3 +36,4 @@ Cargo.lock
 vendor/
 meteoblue_*_linux_musl
 screenshot.png
+/*.html

@@ -1,4 +1,7 @@
+use std::{fs::File, io::Write, path::Path};
+
 use reqwest::{cookie::Jar, Url};
+use scraper::{ElementRef, Html};
 use serde_derive::Serialize;
 
 #[derive(Debug, Default, Serialize)]
@@ -19,6 +22,21 @@ pub struct HourlyForecast {
     night: bool
 }
 
+#[derive(Debug, Serialize)]
+pub struct CurrentWeather {
+    header: String,
+    city: String,
+    icon: (String, String), // (Weather icon URL, title)
+    temperature: i8, // +-127° should be enough
+    description: String
+}
+
+#[derive(Debug, Serialize)]
+pub struct ForecastPage {
+    current_weather: CurrentWeather,
+    hourly_forecast: [HourlyForecast; 24]
+}
+
 pub fn load_from_url(url: &str) -> Option<String> {
 
     let cookie = "extendview=true";
@@ -37,7 +55,62 @@ pub fn load_from_url(url: &str) -> Option<String> {
     response.unwrap().text().ok()
 }
 
-pub fn get_forecast_from_html(html_content: &str) -> [HourlyForecast; 24] {
+fn first_child<'a>(html: &'a Html, selector: &str) -> Option<ElementRef<'a>> {
+    let selector = scraper::Selector::parse(selector).ok()?;
+
+    let mut select = html.select(&selector);
+    let el_ref = select.next();
+    el_ref
+}
+
+fn extract_text(html: &Html, selector: &str) -> Option<String> {
+    let first_child = first_child(html, selector)?;
+    Some(first_child.text().collect())
+}
+
+fn get_current_weather_from_doc(html: &Html) -> CurrentWeather {
+    let opt_header_text = extract_text(html, ".main-heading")
+    .map(|header_text| header_text.trim().to_string());
+
+    let opt_icon = first_child(html, ".current-picto > img")
+    .map(|img| (
+        img.attr("src").map(str::to_owned).unwrap_or_default(),
+        img.attr("title").map(str::to_owned).unwrap_or_default(),
+    ));
+
+    let opt_city = first_child(html, ".current-heading h1")
+    .and_then(|el| el.attr("content").map(str::to_owned));
+
+    let opt_temperature = extract_text(html, ".current-temp")
+    .map(|header_text| header_text.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>())
+    .and_then(|temp_string| temp_string.parse().ok());
+
+    let opt_description = extract_text(html, ".current-description > span:nth-child(1)")
+    .map(|header_text| header_text.trim().to_string());
+
+    CurrentWeather {
+        header: opt_header_text.unwrap_or_default(),
+        city: opt_city.unwrap_or_default(),
+        icon: opt_icon.unwrap_or_default(),
+        temperature: opt_temperature.unwrap_or_default(),
+        description: opt_description.unwrap_or_default(),
+    }
+}
+
+
+pub fn save_to_file<T: AsRef<Path>>(file_path: T, content: &str) -> std::io::Result<()> {
+    let mut file = File::create(file_path)?;
+    file.write_all(content.as_bytes())?;
+    Ok(())
+}
+
+
+pub fn get_forecast_from_html(html_content: &str) -> ForecastPage {
+    #[cfg(debug_assertions)]
+    {
+        save_to_file("content.html", html_content).unwrap();
+    }
+
     let document = scraper::Html::parse_document(html_content);
     let mut hourly_forecast: [HourlyForecast; 24] = Default::default();
 
@@ -69,7 +142,7 @@ pub fn get_forecast_from_html(html_content: &str) -> [HourlyForecast; 24] {
     for (i, child) in children.enumerate() {
         let temperature_text_raw = child.text().collect::<String>();
         let temperature_str = temperature_text_raw.trim();
-        let digits = temperature_str.chars().filter(|c| c.is_digit(10)).collect::<String>();
+        let digits = temperature_str.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>();
         hourly_forecast[i].temperature = digits.parse().unwrap();
     }
 
@@ -80,7 +153,7 @@ pub fn get_forecast_from_html(html_content: &str) -> [HourlyForecast; 24] {
     for (i, child) in children.enumerate() {
         let text_raw = child.text().collect::<String>();
         let text_trimmed_str = text_raw.trim();
-        let digits = text_trimmed_str.chars().filter(|c| c.is_digit(10)).collect::<String>();
+        let digits = text_trimmed_str.chars().filter(|c| c == &'-' || c.is_digit(10)).collect::<String>();
         hourly_forecast[i].windchill = digits.parse().unwrap();
     }
 
@@ -140,10 +213,15 @@ pub fn get_forecast_from_html(html_content: &str) -> [HourlyForecast; 24] {
         hourly_forecast[i].night = night_class_found;
     }
 
-    hourly_forecast
+    let current_weather = get_current_weather_from_doc(&document);
+
+    ForecastPage {
+        current_weather,
+        hourly_forecast,
+    }
 }
 
-pub fn get_forecast_from_url(url: &str) -> [HourlyForecast; 24] {
+pub fn get_forecast_from_url(url: &str) -> ForecastPage {
     let html_content = load_from_url(url).unwrap();
     get_forecast_from_html(&html_content)
 }
