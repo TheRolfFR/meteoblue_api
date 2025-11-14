@@ -1,5 +1,5 @@
 use std::fs::File;
-use rouille::{self, Request, Response, router};
+use rouille::{self, Request, Response, input, router};
 use tempfile::Builder;
 use tokio::runtime::Runtime;
 
@@ -79,12 +79,40 @@ fn route_request(request: &Request) -> Response {
     )
 }
 
+struct SingleAuthHandler {
+    login: String,
+    password: String
+}
+
+impl SingleAuthHandler {
+    pub fn new(login: String, password: String) -> Self {
+        Self { login, password }
+    }
+    pub fn auth_and_handle(&self, request: &Request) -> Response {
+        let auth =  match input::basic_http_auth(request) {
+            Some(a) => a,
+            None => return Response::basic_http_auth_login_required("realm")
+        };
+
+        if auth.login != self.login || auth.password != self.password {
+            return Response::empty_400().with_status_code(403);
+        }
+
+        route_request(request)
+    }
+}
+
 fn main() {
     log::init();
 
     let port =  std::env::var("PORT").unwrap_or("4242".to_string());
     let iface = std::env::var("IFACE").unwrap_or("localhost".to_string());
+
+    let login_expected = std::env::var("LOGIN").expect("LOGIN required");
+    let password_expected: String = std::env::var("PASSWORD").expect("PASSWORD required");
+    let handler = SingleAuthHandler::new(login_expected, password_expected);
+
     let addr = format!("{iface}:{port}");
     println!("Starting server on address {addr}");
-    rouille::start_server(addr, |request| route_request(request))
+    rouille::start_server(addr, move |request| handler.auth_and_handle(request))
 }
