@@ -3,8 +3,9 @@ use rouille::{self, Request, Response, router};
 use tempfile::Builder;
 use tokio::runtime::Runtime;
 
+use meteoblue_api::log;
 use meteoblue_api::forecast::get_forecast_from_url;
-use meteoblue_api::screenshot::{ScreenshotParams, capture_screenshot};
+use meteoblue_api::screenshot::{ScreenshotParams, full_screenshot_process};
 
 fn extract_url(request: &Request) -> Option<String> {
     let raw_query = request.raw_query_string();
@@ -58,7 +59,7 @@ fn route_request(request: &Request) -> Response {
             // Process with proper resource cleanup
             let rt = Runtime::new().unwrap();
             let result = rt.block_on(async {
-                capture_screenshot(screenshot_params).await
+                full_screenshot_process(screenshot_params).await
             });
 
             let response = result.and_then(|_| {
@@ -77,6 +78,7 @@ fn route_request(request: &Request) -> Response {
 }
 
 fn main() {
+    log::init();
     let addr = format!("localhost:{}", std::env::var("PORT").unwrap_or("4242".to_string()));
     println!("Starting server on address {addr}");
     rouille::start_server(addr, |request| route_request(request))
