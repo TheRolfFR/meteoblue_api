@@ -43,3 +43,10 @@ Build steps:
 ```sh
 sh build_and_extract_binaries.sh
 ```
+
+## Run with different level of log
+
+The cli utilizes ``env_logger`` to adjust level of debug. You can then choose which module has which log level [[Reference](https://docs.rs/env_logger/0.11.8/env_logger/#enabling-logging)]:
+```
+RUST_LOG=debug,playwright=off meteoblue_graph https://www.meteoblue.com/fr/meteo/semaine/paris_france_2988507
+```

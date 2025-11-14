@@ -2,7 +2,7 @@ use std::io;
 use std::io::prelude::*;
 
 use clap::{Parser};
-use playwright::{Playwright, api::{BrowserContext, Cookie, Page, ScreenshotType, Viewport}};
+use playwright::{Playwright, api::{Browser, BrowserContext, BrowserType, Cookie, Page, ScreenshotType, Viewport}};
 use crate::log;
 
 /// CLI tool to take screenshots of current day forecast with headless browser
@@ -29,7 +29,20 @@ pub struct ScreenshotParams {
     pub output: String,
 }
 
-pub async fn prepare_browser(headless: bool) -> Result<BrowserContext, &'static str> {
+/// Very important to keep all together not to have ObjectNotFound error
+pub struct PlayWrightInstance {
+    /// The Playwright instance used to control the browser
+    _playwright: Playwright,
+    /// The browser type (e.g., chromium, firefox, webkit)
+    _browser_type: BrowserType,
+    /// The actual browser instance
+    _browser: Browser,
+    /// The browser context for managing sessions and cookies
+    pub context: BrowserContext,
+}
+
+#[inline(always)]
+pub async fn prepare_browser(headless: bool) -> Result<PlayWrightInstance, &'static str> {
     log::debug!("Opening browser...");
 
     let playwright = Playwright::initialize().await.map_err(|_| "Failed to initialize")?;
@@ -42,10 +55,11 @@ pub async fn prepare_browser(headless: bool) -> Result<BrowserContext, &'static 
         height: 720
     })).build().await.map_err(|_| "Failed to build viewport")?;
 
-    Ok(context)
+    Ok(PlayWrightInstance { _playwright: playwright, _browser_type: chromium, _browser: browser, context })
 }
 
-pub async fn store_cookie(context: &mut BrowserContext, opts: &ScreenshotParams) -> Result<(), &'static str> {
+#[inline(always)]
+pub async fn store_cookie(context: &BrowserContext, opts: &ScreenshotParams) -> Result<(), &'static str> {
     log::debug!("Storing cookies...");
     if let Err(e) = context.clear_cookies().await {
         let err_msg = "Failed to clear cookies";
@@ -87,7 +101,7 @@ pub async fn store_cookie(context: &mut BrowserContext, opts: &ScreenshotParams)
     Ok(())
 }
 
-pub async fn navigate_and_capture_screenshot(page: &mut Page, opts: &ScreenshotParams) -> Result<(), &'static str> {
+pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParams) -> Result<(), &'static str> {
     page.goto_builder(&opts.url).goto().await.map_err(|_| "Failed to go to url")?;
 
     log::debug!("Looking for graph at #hourly_forecast...");
@@ -160,11 +174,11 @@ pub async fn navigate_and_capture_screenshot(page: &mut Page, opts: &ScreenshotP
 pub async fn full_screenshot_process(opts: ScreenshotParams) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("{:?}", opts);
 
-    let mut context = prepare_browser(opts.headless).await?;
-    store_cookie(&mut context, &opts).await?;
+    let instance = prepare_browser(opts.headless).await?;
+    store_cookie(&instance.context, &opts).await?;
 
-    let mut page = context.new_page().await?;
-    navigate_and_capture_screenshot(&mut page, &opts).await?;
+    let page = instance.context.new_page().await?;
+    navigate_and_capture_screenshot(&page, &opts).await?;
 
     log::debug!("Exiting...");
     Ok(())
