@@ -28,6 +28,7 @@ fn route_request(request: &Request) -> Response {
             rouille::Response::json(&response)
         },
         (GET) ["/graph"] => {
+            log::debug!("New graph request: {:?}", &request);
             let url = if let Some(url) = extract_url(request) {
                 url
             } else {
@@ -58,8 +59,9 @@ fn route_request(request: &Request) -> Response {
 
             // Process with proper resource cleanup
             let rt = Runtime::new().unwrap();
+            let opt_timeout = std::env::var("TIMEOUT").ok().map(|s| s.parse().unwrap());
             let result = rt.block_on(async {
-                full_screenshot_process(screenshot_params).await
+                full_screenshot_process(screenshot_params, opt_timeout).await
             });
 
             let response = result.and_then(|_| {
@@ -79,7 +81,10 @@ fn route_request(request: &Request) -> Response {
 
 fn main() {
     log::init();
-    let addr = format!("localhost:{}", std::env::var("PORT").unwrap_or("4242".to_string()));
+
+    let port =  std::env::var("PORT").unwrap_or("4242".to_string());
+    let iface = std::env::var("IFACE").unwrap_or("localhost".to_string());
+    let addr = format!("{iface}:{port}");
     println!("Starting server on address {addr}");
     rouille::start_server(addr, |request| route_request(request))
 }

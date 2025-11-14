@@ -6,9 +6,10 @@ use tokio::runtime::Runtime;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: ScreenshotParams = ScreenshotParams::parse();
+    let opt_timeout = std::env::var("TIMEOUT").ok().map(|s| s.parse().unwrap());
 
     log::init();
 
     let rt = Runtime::new().unwrap();
-    rt.block_on(full_screenshot_process(opts))
+    rt.block_on(full_screenshot_process(opts, opt_timeout))
 }

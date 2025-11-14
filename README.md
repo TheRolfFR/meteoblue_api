@@ -50,3 +50,7 @@ The cli utilizes ``env_logger`` to adjust level of debug. You can then choose wh
 ```
 RUST_LOG=debug,playwright=off meteoblue_graph https://www.meteoblue.com/fr/meteo/semaine/paris_france_2988507
 ```
+
+```
+TIMEOUT=2.0 IFACE=0.0.0.0 RUST_LOG=debug,playwright=off,tiny_http=off meteoblue_api
+```

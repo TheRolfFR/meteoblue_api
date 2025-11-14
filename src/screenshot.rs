@@ -101,7 +101,7 @@ pub async fn store_cookie(context: &BrowserContext, opts: &ScreenshotParams) -> 
     Ok(())
 }
 
-pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParams) -> Result<(), &'static str> {
+pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParams, opt_consent_timeout: Option<f64>) -> Result<(), &'static str> {
     page.goto_builder(&opts.url).goto().await.map_err(|_| "Failed to go to url")?;
 
     log::debug!("Looking for graph at #hourly_forecast...");
@@ -113,9 +113,11 @@ pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParam
 
     // remove cookie popup
     log::debug!("Looking for cookie consent popup...");
-    if let Ok(Some(_)) = page.wait_for_selector_builder(".fc-consent-root")
-        .timeout(2.0)
-        .wait_for_selector().await {
+    let mut popup_selector_builder = page.wait_for_selector_builder(".fc-consent-root");
+    if let Some(timeout) = opt_consent_timeout {
+        popup_selector_builder = popup_selector_builder.timeout(timeout);
+    }
+    if let Ok(Some(_)) = popup_selector_builder.wait_for_selector().await {
             page.evaluate::<_, ()>("
                 Element.prototype.remove = function() {
                     this.parentElement.removeChild(this)
@@ -171,14 +173,14 @@ pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParam
     Ok(())
 }
 
-pub async fn full_screenshot_process(opts: ScreenshotParams) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn full_screenshot_process(opts: ScreenshotParams, opt_consent_timeout: Option<f64>) -> Result<(), Box<dyn std::error::Error>> {
     log::debug!("{:?}", opts);
 
     let instance = prepare_browser(opts.headless).await?;
     store_cookie(&instance.context, &opts).await?;
 
     let page = instance.context.new_page().await?;
-    navigate_and_capture_screenshot(&page, &opts).await?;
+    navigate_and_capture_screenshot(&page, &opts, opt_consent_timeout).await?;
 
     log::debug!("Exiting...");
     Ok(())
