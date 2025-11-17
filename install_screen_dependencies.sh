@@ -15,6 +15,6 @@ apt-get install -y \
     libasound2 \
     libxrandr2 \
     fonts-liberation \
-    xvfb \
-    python3-pip
+    libxfixes3 \
+    xvfb
 rm -rf /var/lib/apt/lists/*

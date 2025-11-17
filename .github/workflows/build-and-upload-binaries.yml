@@ -1,0 +1,33 @@
+name: Build and Upload Binaries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+    
+    - name: Set up Podman
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y podman
+        
+    - name: Build and extract binaries
+      run: |
+        sudo sh build_and_extract_binaries.sh
+
+    - name: Get current date
+      id: date
+      run: |
+        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+        
+    - name: Upload all binaries as single artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: meteoblue-binaries-${{ github.sha }}-${{ env.date }}
+        path: target/meteoblue_*_linux_musl
+

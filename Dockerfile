@@ -11,12 +11,11 @@ RUN USER=root cargo new --vcs none --bin meteoblue_api
 
 WORKDIR /app
 
-# copy over your manifests
-COPY ./Cargo.lock ./Cargo.lock
-COPY ./Cargo.toml ./Cargo.toml
+# copy over your manifest
+COPY Cargo.toml Cargo.toml
 
 # Copy and build
-COPY ./src ./src
+COPY src src
 RUN cargo build --release --all-features
 
 ####################
@@ -29,4 +28,4 @@ WORKDIR /root/
 
 COPY --from=builder /app/target/*/release/meteoblue_* .
 
-ENTRYPOINT ["./meteoblue_api", "--help"]
+ENTRYPOINT ["./meteoblue_api"]
