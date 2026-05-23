@@ -1,9 +1,7 @@
-use std::io;
-use std::io::prelude::*;
-
 use clap::{Parser};
 use playwright::{Playwright, api::{Browser, BrowserContext, BrowserType, Cookie, Page, ScreenshotType, Viewport}};
 use crate::log;
+use crate::pause::pause;
 
 /// CLI tool to take screenshots of current day forecast with headless browser
 #[derive(Parser, Debug)]
@@ -122,7 +120,7 @@ pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParam
                 Element.prototype.remove = function() {
                     this.parentElement.removeChild(this)
                 }
-                document.querySelector('.fc-consent-root').remove()", 
+                document.querySelector('.fc-consent-root').remove()",
                 serde_json::json!({})).await.map_err(|_| "Failed to remove consent popup")?;
             log::debug!("Removed concent popup");
         }
@@ -154,7 +152,7 @@ pub async fn navigate_and_capture_screenshot(page: &Page, opts: &ScreenshotParam
 
         log::debug!("CSS injected successfully!");
     }
-    
+
 
     if !opts.headless {
         pause();
@@ -184,18 +182,4 @@ pub async fn full_screenshot_process(opts: ScreenshotParams, opt_consent_timeout
 
     log::debug!("Exiting...");
     Ok(())
-}
-
-
-fn pause() {
-    // If not running in headless mode, pause execution until browser is closed manually
-    let mut stdin = io::stdin();
-    let mut stdout = io::stdout();
-
-    // We want the cursor to stay at the end of the line, so we print without a newline and flush manually.
-    write!(stdout, "Press any key to continue...").expect("Shall press key");
-    stdout.flush().expect("Failed to flush");
-
-    // Read a single byte and discard
-    let _ = stdin.read(&mut [0u8]).expect("Failed to read byte for pause");
 }

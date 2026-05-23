@@ -6,6 +6,7 @@ use tokio::runtime::Runtime;
 use meteoblue_api::log;
 use meteoblue_api::forecast::get_forecast_from_url;
 use meteoblue_api::screenshot::{ScreenshotParams, full_screenshot_process};
+use meteoblue_api::screenshot_34::ThirtyFourEngine;
 
 fn extract_url(request: &Request) -> Option<String> {
     let raw_query = request.raw_query_string();
@@ -13,7 +14,7 @@ fn extract_url(request: &Request) -> Option<String> {
 }
 
 fn route_request(request: &Request) -> Response {
-    
+
     router!(request,
         (GET) ["/ping"] => {
             rouille::Response::text("pong")
@@ -41,19 +42,19 @@ fn route_request(request: &Request) -> Response {
                 .prefix("graph").suffix(".png").tempfile()
                 .map(|file| file.path().to_string_lossy().into_owned())
                 .map_err(|_| rouille::Response::empty_400().with_status_code(500));
-            
+
             let tempfile_path_string = match res_tempfile_path_string {
                 Ok(p) => p,
                 Err(e) => {
                     return e;
-                } 
+                }
             };
 
             let screenshot_params = ScreenshotParams {
                 url,
                 darkmode,
                 transparent,
-                headless: true,
+                headless: !std::env::var("HEADLESS").is_ok_and(|v| v.to_lowercase() == "false"),
                 output: tempfile_path_string.clone(),
             };
 
@@ -61,7 +62,7 @@ fn route_request(request: &Request) -> Response {
             let rt = Runtime::new().unwrap();
             let opt_timeout = std::env::var("TIMEOUT").ok().map(|s| s.parse().unwrap());
             let result = rt.block_on(async {
-                full_screenshot_process(screenshot_params, opt_timeout).await
+                ThirtyFourEngine::full_screenshot_process(screenshot_params, opt_timeout).await
             });
 
             let response = result.and_then(|_| {
