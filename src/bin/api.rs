@@ -60,7 +60,7 @@ fn route_request(request: &Request) -> Response {
 
             // Process with proper resource cleanup
             let rt = Runtime::new().unwrap();
-            let opt_timeout = std::env::var("TIMEOUT").ok().map(|s| s.parse().unwrap());
+            let opt_timeout = std::env::var("TIMEOUT").ok().and_then(|s| s.parse().ok());
             let result = rt.block_on(async {
                 ThirtyFourEngine::full_screenshot_process(screenshot_params, opt_timeout).await
             });

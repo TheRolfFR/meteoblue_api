@@ -16,7 +16,7 @@ meteoblue_api_linux_musl <METEOBLUE_CITY_URL>
 
 ## Requirements
 
-- Rust 1.83+
+- Rust 1.95+
 
 ## How to run in dev
 
@@ -30,6 +30,12 @@ To run with real URL:
 cargo run -- https://www.meteoblue.com/en/weather/week/paris_france_2988507
 ```
 
+## How to test with window opened
+
+Just use `HEADLESS` env variable set to `false`:
+```
+LOGIN=toto PASSWORD=tata HEADLESS=false cargo run --bin meteoblue_api
+```
 
 ## How to build release
 
@@ -52,5 +58,5 @@ RUST_LOG=debug,playwright=off meteoblue_graph https://www.meteoblue.com/fr/meteo
 ```
 
 ```
-TIMEOUT=2.0 IFACE=0.0.0.0 RUST_LOG=debug,playwright=off,tiny_http=off meteoblue_api
+LOGIN=toto PASSWORD=tata TIMEOUT=2.0 IFACE=0.0.0.0 RUST_LOG=debug,playwright=off,iny_http=off,html5ever=off,selectors=off meteoblue_api
 ```

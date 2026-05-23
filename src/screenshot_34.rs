@@ -57,7 +57,11 @@ impl ThirtyFourEngine {
             caps.unset_headless().map_err(|_| "Failed to change headless")?;
         }
 
-        let driver = WebDriver::managed(caps).await.map_err(|_| "Failed to initialize")?;
+        let driver = WebDriver::managed(caps).await.map_err(|e| {
+            let err_msg = "Failed to initialize";
+            log::error!("{}: {}", err_msg, e);
+            return err_msg;
+        })?;
 
         driver.set_window_rect(0, 0, 1280, 1600).await.map_err(|_| "Failed to build viewport")?;
 
