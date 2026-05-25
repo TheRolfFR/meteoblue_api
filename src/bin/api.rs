@@ -54,7 +54,7 @@ fn route_request(request: &Request) -> Response {
                 url,
                 darkmode,
                 transparent,
-                headless: !std::env::var("HEADLESS").is_ok_and(|v| v.to_lowercase() == "false"),
+                headless: std::env::var("HEADLESS").is_ok_and(|v| v.to_lowercase() == "false"),
                 output: tempfile_path_string.clone(),
             };
 

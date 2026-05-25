@@ -24,6 +24,11 @@ impl ThirtyFourEngine {
         self.driver.screenshot(path.as_ref()).await.map_err(|_| "Failed to save screenshot")?;
 
         let truepath = path.as_ref().to_path_buf();
+        let copy_path = truepath.with_file_name("screenshot_full.png");
+
+        std::fs::copy(&truepath, &copy_path).ok();
+        println!("{:?}", copy_path);
+
         tokio::task::spawn_blocking(move || {
             // open up the image file
             log::info!("Reading image from file");
@@ -140,12 +145,12 @@ impl ThirtyFourEngine {
             log::debug!("Removed consent popup");
         }
 
-        log::debug!("Scroll into graph");
-        hourly_forecast.scroll_into_view().await.map_err(|e| {
-            let err_msg = "Failed to scroll into graph;";
-            log::error!("{}: {}", err_msg, e);
-            err_msg
-        })?;
+        // log::debug!("Scroll into graph");
+        // hourly_forecast.scroll_into_view().await.map_err(|e| {
+        //     let err_msg = "Failed to scroll into graph;";
+        //     log::error!("{}: {}", err_msg, e);
+        //     err_msg
+        // })?;
 
         if opts.transparent {
             // Inject CSS to remove background from the entire page or specific elements
@@ -173,7 +178,6 @@ impl ThirtyFourEngine {
 
         log::debug!("{:?}", &graph_rect);
 
-        graph_rect.y -= 5.; // add some margin top
         graph_rect.width += 5.; // add some margin right
         graph_rect.height += 5.; // add some margin below
 
