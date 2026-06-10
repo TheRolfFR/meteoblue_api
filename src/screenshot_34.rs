@@ -196,6 +196,12 @@ impl ThirtyFourEngine {
         Ok(())
     }
 
+    pub async fn close(self) -> Result<(), &'static str>{
+        // Always explicitly close the browser.
+        self.driver.quit().await.map_err(|_| "Failed to close driver")?;
+        Ok(())
+    }
+
     pub async fn full_screenshot_process(opts: ScreenshotParams, opt_consent_timeout: Option<f64>) -> Result<(), Box<dyn std::error::Error>> {
         log::debug!("{:?}", opts);
 
@@ -203,6 +209,7 @@ impl ThirtyFourEngine {
         engine.navigate(&opts).await?;
         engine.store_cookie(&opts).await?;
         engine.capture_screenshot(&opts, opt_consent_timeout).await?;
+        engine.close().await?;
 
         log::debug!("Exiting...");
         Ok(())
